@@ -504,6 +504,36 @@ func TestConfig_InlineTables(t *testing.T) {
 	require.Equal(t, []string{"org_id"}, c.Outputs[0].Config.Filter.TagInclude)
 }
 
+func TestConfig_TestModeSkipsOutputBuffer(t *testing.T) {
+	root := t.TempDir()
+	bufferDirectory := filepath.Join(root, "buffer")
+	require.NoError(t, os.WriteFile(bufferDirectory, []byte("not a directory"), 0600))
+
+	cfg := []byte(fmt.Sprintf(`
+[agent]
+  buffer_strategy = "disk"
+  buffer_directory = %q
+
+[[outputs.serializer_test_new]]
+  data_format = "json"
+`, bufferDirectory))
+
+	c := config.NewConfig()
+	err := c.LoadConfigData(cfg, config.EmptySourcePath)
+	require.ErrorContains(t, err, "creating buffer failed")
+
+	c = config.NewConfig()
+	c.TestMode = true
+	require.NoError(t, c.LoadConfigData(cfg, config.EmptySourcePath))
+	require.Len(t, c.Outputs, 1)
+	require.True(t, c.Outputs[0].Config.SkipBuffer)
+	require.Equal(t, "disk_write_through", c.Outputs[0].Config.BufferStrategy)
+
+	output, ok := c.Outputs[0].Output.(*MockupOutputPluginSerializerNew)
+	require.True(t, ok)
+	require.NotNil(t, output.Serializer)
+}
+
 func TestConfig_SliceComment(t *testing.T) {
 	c := config.NewConfig()
 	require.NoError(t, c.LoadConfig("./testdata/slice_comment.toml"))

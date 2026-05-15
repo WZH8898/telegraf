@@ -88,6 +88,9 @@ type Config struct {
 	InputFilters       []string
 	OutputFilters      []string
 	SecretStoreFilters []string
+	// TestMode keeps output parsing in place while avoiding resources only
+	// needed when outputs are actually used.
+	TestMode bool
 
 	SecretStores      map[string]telegraf.SecretStore
 	secretStoreSource map[string][]string
@@ -1765,6 +1768,7 @@ func (c *Config) buildOutput(name, source string, tbl *ast.Table) (*models.Outpu
 		BufferStrategy:  bufferStrategy,
 		BufferDirectory: c.Agent.BufferDirectory,
 		BufferDiskSync:  bufferDiskSync,
+		SkipBuffer:      c.TestMode,
 	}
 
 	// TODO: support FieldPass/FieldDrop on outputs

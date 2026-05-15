@@ -44,6 +44,9 @@ type OutputConfig struct {
 	BufferStrategy  string
 	BufferDirectory string
 	BufferDiskSync  bool
+	// SkipBuffer disables runtime buffer initialization when outputs are
+	// parsed for validation but never written to, such as in --test mode.
+	SkipBuffer bool
 
 	LogLevel string
 }
@@ -109,9 +112,15 @@ func NewRunningOutput(output telegraf.Output, config *OutputConfig, batchSize, b
 		batchSize = DefaultMetricBatchSize
 	}
 
-	b, err := NewBuffer(config.Name, config.ID, config.Alias, bufferLimit, config.BufferStrategy, config.BufferDirectory, config.BufferDiskSync)
-	if err != nil {
-		return nil, fmt.Errorf("creating buffer failed: %w", err)
+	var b Buffer
+	if config.SkipBuffer {
+		b = newDiscardBuffer(NewBufferStats(tags, bufferLimit))
+	} else {
+		var err error
+		b, err = NewBuffer(config.Name, config.ID, config.Alias, bufferLimit, config.BufferStrategy, config.BufferDirectory, config.BufferDiskSync)
+		if err != nil {
+			return nil, fmt.Errorf("creating buffer failed: %w", err)
+		}
 	}
 
 	ro := &RunningOutput{
